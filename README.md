@@ -13,31 +13,57 @@ This script serves as a compatibility layer that:
 
 ## Features
 
-### Supported Options
+### Help Output
 
-#### Universal Options (work with both doas and sh fallback)
-- `-h, --help` - Display help message
+The `--help` output adapts based on whether doas is available:
+
+#### With doas installed:
+```
+Mode: Using doas backend (privilege escalation enabled)
+
+Fully supported options:
+  -u, -n, -s, -i, -b, -a, -C, -L, -l
+
+Limited support with warnings:
+  -v, -k, -K, -E, -g, -H
+```
+
+#### Without doas:
+```
+Mode: Using shell backend (NO privilege escalation)
+
+Working options:
+  -s, -i, -b (execute as current user)
+
+Ignored options (warnings shown):
+  -u, -n, -g, -a, -C, -L, -l, -v, -k, -K, -E, -H
+```
+
+### Supported Options by Scenario
+
+#### Universal Options (work in both scenarios)
+- `-h, --help` - Display context-aware help message
 - `-V, --version` - Display version information
-- `-s, --shell` - Run shell
-- `-i, --login` - Run login shell
+- `-s, --shell` - Run shell (as target user with doas, as current user without)
+- `-i, --login` - Run login shell (as target user with doas, as current user without)
 - `-b, --background` - Run command in background
 - `--` - End of options delimiter
 
-#### doas-Only Options (require doas to be installed)
+#### doas Backend Options (require doas installation)
 - `-u user, --user=user` - Run command as specified user (default: root)
 - `-n, --non-interactive` - Non-interactive mode, fail if password required
 - `-a style` - Use specified authentication style
 - `-C config` - Check configuration file
 - `-L, --clear-persist` - Clear persisted authentication
+- `-l, --list` - List doas configuration
 
-#### Limited/Warning Options
-- `-g group, --group=group` - Not supported by doas (warning issued)
-- `-E, --preserve-env` - Limited support with doas (warning issued)
-- `-H, --set-home` - Not implemented
-- `-v, --validate` - Limited support
-- `-k, --reset-timestamp` - Limited support
-- `-K, --remove-timestamp` - Limited support
-- `-l, --list` - Lists doas configuration or shows warning
+#### Limited Support Options (warnings issued)
+- `-v, --validate` - Update cached credentials (limited support with doas)
+- `-k, --reset-timestamp` - Invalidate cached credentials (limited support with doas)
+- `-K, --remove-timestamp` - Remove all cached credentials (limited support with doas)
+- `-E, --preserve-env` - Preserve user environment (limited support with doas)
+- `-g group, --group=group` - Run with specified group (not supported by doas)
+- `-H, --set-home` - Set HOME to target user's home (not implemented)
 
 ## Behavior
 
