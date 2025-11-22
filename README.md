@@ -1,7 +1,7 @@
 # sudo - Compatibility Wrapper
 
-[![License](https://img.shields.io/badge/License-BSD%202--Clause-blue.svg)](https://opensource.org/licenses/BSD-2-Clause)
-[![Language](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
+[![License](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD)
+[![Language](https://img.shields.io/badge/language-c-blue.svg)](https://en.wikipedia.org/wiki/c_(programming_language))
 
 A POSIX-compliant shell script that provides `sudo`-like functionality by mapping commands to `doas` when available, or falling back to plain shell execution when `doas` is not installed.
 
