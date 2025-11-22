@@ -177,13 +177,13 @@ When `doas` is not installed, no configuration is needed. Commands run with the 
 | `-s` | ✅ Full support | ✅ Current user shell |
 | `-i` | ✅ Full support | ✅ Current user shell |
 | `-n` | ✅ Full support | ⚠️ Ignored (warning) |
-| `-E` | ⚠️ Limited | ✅ N/A (env preserved) |
+| `-E` | ⚠️ Limited support | ✅ Environment preserved |
 | `-b` | ✅ Full support | ✅ Full support |
-| `-a style` | ✅ Full support | ❌ Not available |
-| `-C config` | ✅ Full support | ❌ Not available |
-| `-L` | ✅ Full support | ❌ Not available |
-| `-v/-k/-K` | ⚠️ Limited | ⚠️ No effect |
-| `-l` | ⚠️ Shows config | ⚠️ Shows warning |
+| `-a style` | ✅ Full support | ⚠️ Ignored (warning) |
+| `-C config` | ✅ Full support | ⚠️ Ignored (warning) |
+| `-L` | ✅ Full support | ⚠️ Ignored (warning) |
+| `-v/-k/-K` | ⚠️ Limited support | ⚠️ Ignored (warning) |
+| `-l` | ✅ Shows config | ⚠️ Shows warning |
 
 ## Security Considerations
 
@@ -193,7 +193,11 @@ When `doas` is not installed, no configuration is needed. Commands run with the 
 
 2. **Install doas for Production**: For any system requiring privilege escalation, install and configure `doas` properly:
    - OpenBSD: Built-in
-   - Linux: Available in most package managers (`apt install doas`, `yum install doas`, etc.)
+   - NetBSD: Available as package (`pkgin install doas`)
+   - FreeBSD: Available as package (`pkg install doas`)
+   - DragonFly BSD: Available as package (`pkg install doas`)
+   - Alpine Linux: Built-in (native doas support)
+   - Other Linux: Available in most package managers (`apt install doas`, `yum install doas`, etc.)
    - macOS: Available via Homebrew (`brew install doas`)
 
 3. **Configuration Validation**: Always validate your `doas.conf` configuration:
@@ -230,14 +234,8 @@ Test the script's behavior:
 - [doas.conf(5) - OpenBSD Manual](https://man.openbsd.org/doas.conf)
 - [sudo(8) - FreeBSD Manual](https://man.freebsd.org/cgi/man.cgi?sudo(8))
 
-## License
+## Disclaimer
 
 This script is provided as-is for compatibility purposes. Use at your own risk.
 
-## Contributing
 
-Contributions are welcome! Please ensure any changes:
-- Maintain POSIX shell compatibility
-- Preserve the two-mode behavior (doas vs. shell fallback)
-- Include appropriate warnings for unsupported features
-- Update documentation accordingly
