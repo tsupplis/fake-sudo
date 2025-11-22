@@ -1,0 +1,311 @@
+#!/bin/sh
+# sudo - A compatibility wrapper that maps sudo commands to doas or provides
+#        equivalent behavior using sh when doas is not available
+#
+# This script attempts to translate common sudo options to doas equivalents
+# or simulate the behavior when doas is not installed.
+
+set -e
+
+# Check if doas is available
+HAVE_DOAS=0
+if command -v doas >/dev/null 2>&1; then
+    HAVE_DOAS=1
+fi
+
+# Function to show usage/help
+show_help() {
+    cat <<'EOF'
+sudo - execute a command as another user (compatibility wrapper)
+
+Usage: sudo [options] [command [arg ...]]
+
+Common options:
+  -h, --help              Display this help message
+  -V, --version           Display version information
+  -v, --validate          Update cached credentials (not fully supported)
+  -k, --reset-timestamp   Invalidate cached credentials (not fully supported)
+  -K, --remove-timestamp  Remove all cached credentials (not fully supported)
+  -u user, --user=user    Run command as specified user (default: root)
+  -g group, --group=group Run command with specified group
+  -s, --shell             Run shell
+  -i, --login             Run login shell
+  -n, --non-interactive   Non-interactive mode, fail if password required
+  -E, --preserve-env      Preserve user environment
+  -H, --set-home          Set HOME to target user's home directory
+  -b, --background        Run command in background
+  -l, --list              List user privileges
+  -C config, --check      Check configuration (doas only)
+  -L, --clear-persist     Clear persisted authentication (doas only)
+
+Note: This is a compatibility wrapper. Not all sudo features are supported.
+EOF
+}
+
+# Function to show version
+show_version() {
+    if [ "$HAVE_DOAS" -eq 1 ]; then
+        echo "sudo compatibility wrapper (using doas backend)"
+        doas -V 2>/dev/null || echo "doas version: unknown"
+    else
+        echo "sudo compatibility wrapper (using sh backend)"
+        echo "Version: 1.0.0"
+    fi
+}
+
+# Initialize variables
+TARGET_USER="root"
+RUN_SHELL=0
+LOGIN_SHELL=0
+PRESERVE_ENV=0
+SET_HOME=0
+BACKGROUND=0
+NON_INTERACTIVE=0
+LIST_PRIVILEGES=0
+VALIDATE=0
+RESET_TIMESTAMP=0
+REMOVE_TIMESTAMP=0
+TARGET_GROUP=""
+AUTH_STYLE=""
+CHECK_CONFIG=""
+CLEAR_PERSIST=0
+COMMAND=""
+COMMAND_ARGS=""
+
+# Parse arguments
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -V|--version)
+            show_version
+            exit 0
+            ;;
+        -u|--user)
+            shift
+            if [ $# -eq 0 ]; then
+                echo "sudo: option requires an argument -- u" >&2
+                exit 1
+            fi
+            TARGET_USER="$1"
+            shift
+            ;;
+        --user=*)
+            TARGET_USER="${1#--user=}"
+            shift
+            ;;
+        -g|--group)
+            shift
+            if [ $# -eq 0 ]; then
+                echo "sudo: option requires an argument -- g" >&2
+                exit 1
+            fi
+            TARGET_GROUP="$1"
+            shift
+            ;;
+        --group=*)
+            TARGET_GROUP="${1#--group=}"
+            shift
+            ;;
+        -s|--shell)
+            RUN_SHELL=1
+            shift
+            ;;
+        -i|--login)
+            LOGIN_SHELL=1
+            shift
+            ;;
+        -E|--preserve-env)
+            PRESERVE_ENV=1
+            shift
+            ;;
+        -H|--set-home)
+            SET_HOME=1
+            shift
+            ;;
+        -b|--background)
+            BACKGROUND=1
+            shift
+            ;;
+        -n|--non-interactive)
+            NON_INTERACTIVE=1
+            shift
+            ;;
+        -l|--list)
+            LIST_PRIVILEGES=1
+            shift
+            ;;
+        -v|--validate)
+            VALIDATE=1
+            shift
+            ;;
+        -k|--reset-timestamp)
+            RESET_TIMESTAMP=1
+            shift
+            ;;
+        -K|--remove-timestamp)
+            REMOVE_TIMESTAMP=1
+            shift
+            ;;
+        -a)
+            shift
+            if [ $# -eq 0 ]; then
+                echo "sudo: option requires an argument -- a" >&2
+                exit 1
+            fi
+            AUTH_STYLE="$1"
+            shift
+            ;;
+        -C)
+            shift
+            if [ $# -eq 0 ]; then
+                echo "sudo: option requires an argument -- C" >&2
+                exit 1
+            fi
+            CHECK_CONFIG="$1"
+            shift
+            ;;
+        -L|--clear-persist)
+            CLEAR_PERSIST=1
+            shift
+            ;;
+        --)
+            shift
+            COMMAND="$1"
+            shift
+            COMMAND_ARGS="$*"
+            break
+            ;;
+        -*)
+            echo "sudo: unknown option: $1" >&2
+            echo "Try 'sudo --help' for more information." >&2
+            exit 1
+            ;;
+        *)
+            COMMAND="$1"
+            shift
+            COMMAND_ARGS="$*"
+            break
+            ;;
+    esac
+done
+
+# Handle special operations that don't execute commands
+if [ "$CLEAR_PERSIST" -eq 1 ]; then
+    if [ "$HAVE_DOAS" -eq 1 ]; then
+        exec doas -L
+    else
+        echo "sudo: -L option requires doas (not available)" >&2
+        exit 1
+    fi
+fi
+
+if [ "$VALIDATE" -eq 1 ] || [ "$RESET_TIMESTAMP" -eq 1 ] || [ "$REMOVE_TIMESTAMP" -eq 1 ]; then
+    if [ "$HAVE_DOAS" -eq 1 ]; then
+        # doas doesn't have exact equivalents, but we can try a no-op command
+        if [ "$REMOVE_TIMESTAMP" -eq 1 ]; then
+            doas -L 2>/dev/null || true
+        fi
+        echo "sudo: credential caching operations have limited support" >&2
+    else
+        echo "sudo: credential caching not supported without doas" >&2
+    fi
+    exit 0
+fi
+
+if [ "$LIST_PRIVILEGES" -eq 1 ]; then
+    if [ "$HAVE_DOAS" -eq 1 ]; then
+        echo "Checking doas configuration..."
+        if [ -f /etc/doas.conf ]; then
+            cat /etc/doas.conf
+        else
+            echo "No /etc/doas.conf file found" >&2
+        fi
+    else
+        echo "sudo: -l option requires doas or sudoers (not available)" >&2
+    fi
+    exit 0
+fi
+
+# Handle shell invocation
+if [ "$RUN_SHELL" -eq 1 ] || [ "$LOGIN_SHELL" -eq 1 ]; then
+    USER_SHELL="${SHELL:-/bin/sh}"
+    
+    if [ "$HAVE_DOAS" -eq 1 ]; then
+        DOAS_ARGS="-u $TARGET_USER"
+        [ "$NON_INTERACTIVE" -eq 1 ] && DOAS_ARGS="$DOAS_ARGS -n"
+        [ -n "$AUTH_STYLE" ] && DOAS_ARGS="$DOAS_ARGS -a $AUTH_STYLE"
+        
+        if [ "$LOGIN_SHELL" -eq 1 ]; then
+            exec doas $DOAS_ARGS -s
+        else
+            exec doas $DOAS_ARGS "$USER_SHELL"
+        fi
+    else
+        # Fallback: just run the shell (ignoring user switching)
+        if [ "$TARGET_USER" != "root" ] && [ "$TARGET_USER" != "$(id -un)" ]; then
+            echo "sudo: warning: cannot switch to user '$TARGET_USER' without doas, running as current user" >&2
+        fi
+        exec "$USER_SHELL"
+    fi
+fi
+
+# No command specified
+if [ -z "$COMMAND" ]; then
+    echo "sudo: no command specified" >&2
+    echo "Try 'sudo --help' for more information." >&2
+    exit 1
+fi
+
+# Check config mode
+if [ -n "$CHECK_CONFIG" ]; then
+    if [ "$HAVE_DOAS" -eq 1 ]; then
+        exec doas -C "$CHECK_CONFIG" $COMMAND $COMMAND_ARGS
+    else
+        echo "sudo: -C option requires doas (not available)" >&2
+        exit 1
+    fi
+fi
+
+# Execute command with doas
+if [ "$HAVE_DOAS" -eq 1 ]; then
+    DOAS_ARGS="-u $TARGET_USER"
+    [ "$NON_INTERACTIVE" -eq 1 ] && DOAS_ARGS="$DOAS_ARGS -n"
+    [ -n "$AUTH_STYLE" ] && DOAS_ARGS="$DOAS_ARGS -a $AUTH_STYLE"
+    
+    if [ -n "$TARGET_GROUP" ]; then
+        echo "sudo: warning: -g option not supported by doas, ignoring" >&2
+    fi
+    
+    if [ "$PRESERVE_ENV" -eq 1 ]; then
+        echo "sudo: warning: -E option has limited support with doas" >&2
+    fi
+    
+    if [ "$BACKGROUND" -eq 1 ]; then
+        # shellcheck disable=SC2086
+        doas $DOAS_ARGS $COMMAND $COMMAND_ARGS &
+    else
+        # shellcheck disable=SC2086
+        exec doas $DOAS_ARGS $COMMAND $COMMAND_ARGS
+    fi
+else
+    # Fallback implementation using plain sh (no user switching)
+    if [ "$TARGET_USER" != "root" ] && [ "$TARGET_USER" != "$(id -un)" ]; then
+        echo "sudo: warning: cannot switch to user '$TARGET_USER' without doas, running as current user" >&2
+    fi
+    
+    if [ -n "$TARGET_GROUP" ]; then
+        echo "sudo: warning: -g option not supported without doas" >&2
+    fi
+    
+    # Execute the command directly
+    if [ "$BACKGROUND" -eq 1 ]; then
+        # shellcheck disable=SC2086
+        $COMMAND $COMMAND_ARGS &
+    else
+        # shellcheck disable=SC2086
+        exec $COMMAND $COMMAND_ARGS
+    fi
+fi
