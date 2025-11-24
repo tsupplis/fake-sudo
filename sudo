@@ -15,67 +15,31 @@ fi
 
 # Function to show usage/help
 show_help() {
-    if [ "$HAVE_DOAS" -eq 1 ]; then
-        cat <<'EOF'
+    cat <<'EOF'
 sudo - execute a command as another user (compatibility wrapper)
 
 Usage: sudo [options] [command [arg ...]]
 
-Mode: Using doas backend (privilege escalation enabled)
-
 Common options:
   -h, --help              Display this help message
   -V, --version           Display version information
+  -v, --validate          Update cached credentials (not fully supported)
+  -k, --reset-timestamp   Invalidate cached credentials (not fully supported)
+  -K, --remove-timestamp  Remove all cached credentials (not fully supported)
   -u user, --user=user    Run command as specified user (default: root)
-  -s, --shell             Run shell as target user
-  -i, --login             Run login shell as target user
+  -g group, --group=group Run command with specified group
+  -s, --shell             Run shell
+  -i, --login             Run login shell
   -n, --non-interactive   Non-interactive mode, fail if password required
+  -E, --preserve-env      Preserve user environment
+  -H, --set-home          Set HOME to target user's home directory
   -b, --background        Run command in background
-  -a style                Use specified authentication style
-  -C config               Check doas configuration file
-  -L, --clear-persist     Clear persisted authentication
-  -l, --list              List doas configuration
+  -l, --list              List user privileges
+  -C config, --check      Check configuration (doas only)
+  -L, --clear-persist     Clear persisted authentication (doas only)
 
-Limited support options:
-  -v, --validate          Update cached credentials (limited support)
-  -k, --reset-timestamp   Invalidate cached credentials (limited support)
-  -K, --remove-timestamp  Remove all cached credentials (limited support)
-  -E, --preserve-env      Preserve user environment (warning: limited support)
-  -g group, --group=group Run with specified group (warning: not supported by doas)
-  -H, --set-home          Set HOME to target user's home (not implemented)
-
-Note: This wrapper translates sudo options to doas equivalents.
+Note: This is a compatibility wrapper. Not all sudo features are supported.
 EOF
-    else
-        cat <<'EOF'
-sudo - execute a command as another user (compatibility wrapper)
-
-Usage: sudo [options] [command [arg ...]]
-
-Mode: Using shell backend (NO privilege escalation - development/testing mode)
-
-Common options:
-  -h, --help              Display this help message
-  -V, --version           Display version information
-  -s, --shell             Run shell (as current user)
-  -i, --login             Run login shell (as current user)
-  -b, --background        Run command in background
-
-Ignored options (warnings will be shown):
-  -u user, --user=user    Run as specified user (ignored: requires doas)
-  -n, --non-interactive   Non-interactive mode (ignored: requires doas)
-  -g group, --group=group Run with specified group (ignored: requires doas)
-  -a style                Authentication style (ignored: requires doas)
-  -C config               Check configuration (ignored: requires doas)
-  -L, --clear-persist     Clear persisted auth (ignored: requires doas)
-  -l, --list              List privileges (ignored: requires doas)
-  -v, --validate          Validate credentials (ignored: requires doas)
-  -k, --reset-timestamp   Reset timestamp (ignored: requires doas)
-  -K, --remove-timestamp  Remove timestamp (ignored: requires doas)
-  -E, --preserve-env      Preserve environment (ignored: requires doas)
-  -H, --set-home          Set HOME (ignored: requires doas)
-EOF
-    fi
 }
 
 # Function to show version
@@ -106,7 +70,6 @@ AUTH_STYLE=""
 CHECK_CONFIG=""
 CLEAR_PERSIST=0
 COMMAND=""
-COMMAND_ARGS=""
 
 # Parse arguments
 while [ $# -gt 0 ]; do
@@ -211,7 +174,6 @@ while [ $# -gt 0 ]; do
             shift
             COMMAND="$1"
             shift
-            COMMAND_ARGS="$*"
             break
             ;;
         -*)
@@ -222,7 +184,6 @@ while [ $# -gt 0 ]; do
         *)
             COMMAND="$1"
             shift
-            COMMAND_ARGS="$*"
             break
             ;;
     esac
@@ -298,7 +259,7 @@ fi
 # Check config mode
 if [ -n "$CHECK_CONFIG" ]; then
     if [ "$HAVE_DOAS" -eq 1 ]; then
-        exec doas -C "$CHECK_CONFIG" $COMMAND $COMMAND_ARGS
+        exec doas -C "$CHECK_CONFIG" $COMMAND "$@"
     else
         echo "sudo: -C option requires doas (not available)" >&2
         exit 1
@@ -321,10 +282,10 @@ if [ "$HAVE_DOAS" -eq 1 ]; then
     
     if [ "$BACKGROUND" -eq 1 ]; then
         # shellcheck disable=SC2086
-        doas $DOAS_ARGS $COMMAND $COMMAND_ARGS &
+        doas $DOAS_ARGS $COMMAND "$@" &
     else
         # shellcheck disable=SC2086
-        exec doas $DOAS_ARGS $COMMAND $COMMAND_ARGS
+        exec doas $DOAS_ARGS $COMMAND "$@"
     fi
 else
     # Fallback implementation using plain sh (no user switching)
@@ -339,9 +300,9 @@ else
     # Execute the command directly
     if [ "$BACKGROUND" -eq 1 ]; then
         # shellcheck disable=SC2086
-        $COMMAND $COMMAND_ARGS &
+        $COMMAND "$@" &
     else
         # shellcheck disable=SC2086
-        exec $COMMAND $COMMAND_ARGS
+        exec $COMMAND "$@"
     fi
 fi
