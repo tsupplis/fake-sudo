@@ -55,7 +55,6 @@ Ignored options (warnings shown):
 - `-a style` - Use specified authentication style
 - `-C config` - Check configuration file
 - `-L, --clear-persist` - Clear persisted authentication
-- `-l, --list` - List doas configuration
 
 #### Limited Support Options (warnings issued)
 - `-v, --validate` - Update cached credentials (limited support with doas)
@@ -64,6 +63,7 @@ Ignored options (warnings shown):
 - `-E, --preserve-env` - Preserve user environment (limited support with doas)
 - `-g group, --group=group` - Run with specified group (not supported by doas)
 - `-H, --set-home` - Set HOME to target user's home (not implemented)
+- `-l, --list` - List privileges (not implemented)
 
 ## Behavior
 
@@ -183,7 +183,7 @@ When `doas` is not installed, no configuration is needed. Commands run with the 
 | `-C config` | ✅ Full support | ⚠️ Ignored (warning) |
 | `-L` | ✅ Full support | ⚠️ Ignored (warning) |
 | `-v/-k/-K` | ⚠️ Limited support | ⚠️ Ignored (warning) |
-| `-l` | ✅ Shows config | ⚠️ Shows warning |
+| `-l` | ❌ Not implemented | ❌ Not implemented |
 
 ## Security Considerations
 
