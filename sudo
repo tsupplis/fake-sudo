@@ -104,6 +104,42 @@ run_doas() {
     fi
 }
 
+run_doas_shell() {
+    if [ -n "$opt_target_group" ]; then
+        warn "-g option not supported by doas, ignoring"
+    fi
+
+    if [ "$opt_preserve_env" -eq 1 ]; then
+        warn "-E option requested: preserving a minimal safe environment"
+        for var in LANG LC_ALL LC_CTYPE LC_MESSAGES LC_COLLATE LC_TIME LC_NUMERIC LC_MONETARY TERM COLORTERM; do
+            val=$(printenv "$var")
+            if [ -n "$val" ]; then
+                set -- "$var=$val" "$@"
+            fi
+        done
+        set -- "PATH=$DOAS_SAFE_PATH" "$@"
+        set -- env -i "$@"
+    fi
+
+    # Prepend doas options in reverse order to preserve argument integrity
+    if [ -n "$opt_auth_style" ]; then
+        set -- -a "$opt_auth_style" "$@"
+    fi
+    if [ "$opt_non_interactive" -eq 1 ]; then
+        set -- -n "$@"
+    fi
+    set -- -u "$opt_target_user" "$@"
+
+    # Request a shell from doas (do not add -- here)
+    set -- -s "$@"
+
+    if [ "$opt_background" -eq 1 ]; then
+        PATH="$DOAS_SAFE_PATH" doas "$@" &
+    else
+        exec env PATH="$DOAS_SAFE_PATH" doas "$@"
+    fi
+}
+
 run_shell() {
     if [ "$opt_background" -eq 1 ]; then
         # shellcheck disable=SC2086
@@ -408,11 +444,7 @@ if [ "$opt_run_shell" -eq 1 ] || [ "$opt_login_shell" -eq 1 ]; then
     user_shell="${SHELL:-/bin/sh}"
     
     if [ "$have_doas" -eq 1 ]; then
-        if [ "$opt_login_shell" -eq 1 ]; then
-            run_doas -s
-        else
-            run_doas "$user_shell"
-        fi
+        run_doas_shell
     else
         # Fallback: just run the shell (ignoring user switching)
         if [ "$opt_target_user" != "root" ] && [ "$opt_target_user" != "$(id -un)" ]; then
