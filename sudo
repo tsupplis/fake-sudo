@@ -85,6 +85,9 @@ run_doas() {
         set -- env -i "$@"
     fi
 
+    # Insert end-of-options marker before command, then prepend doas options
+    set -- -- "$@"
+
     # Prepend doas options in reverse order to preserve argument integrity
     if [ -n "$opt_auth_style" ]; then
         set -- -a "$opt_auth_style" "$@"
@@ -115,7 +118,7 @@ run_shell() {
             set -- "PATH=$DOAS_SAFE_PATH" "$@"
             set -- env -i "$@"
         fi
-        "$@" &
+        command -- "$@" &
     else
         # shellcheck disable=SC2086
         if [ "$opt_preserve_env" -eq 1 ]; then
@@ -129,7 +132,10 @@ run_shell() {
             set -- "PATH=$DOAS_SAFE_PATH" "$@"
             set -- env -i "$@"
         fi
-        exec "$@"
+        case "$1" in
+            -*) exec command -- "$@" ;;
+            *) exec "$@" ;;
+        esac
     fi
 }
 
@@ -221,7 +227,6 @@ opt_target_user="root"
 opt_run_shell=0
 opt_login_shell=0
 opt_preserve_env=0
-# shellcheck disable=SC2034
 opt_set_home=0
 opt_background=0
 opt_non_interactive=0
@@ -234,8 +239,10 @@ opt_auth_style=""
 opt_check_config=""
 opt_clear_persist=0
 command=""
+end_of_options_only=0
 arg_sep="$(printf '\037')"
 command_args_buf=""
+: "$opt_set_home"
 
 parse_args() {
     while [ $# -gt 0 ]; do
@@ -341,12 +348,13 @@ parse_args() {
                 shift
                 if [ $# -eq 0 ]; then
                     command=""
+                    end_of_options_only=1
                     return 0
                 fi
                 command="$1"
                 shift
                 command_args_buf="$(printf '%s\037' "$@")"
-                command_args_buf="${command_args_buf%$arg_sep}"
+                command_args_buf="${command_args_buf%"$arg_sep"}"
                 break
                 ;;
             -* )
@@ -356,7 +364,7 @@ parse_args() {
                 command="$1"
                 shift
                 command_args_buf="$(printf '%s\037' "$@")"
-                command_args_buf="${command_args_buf%$arg_sep}"
+                command_args_buf="${command_args_buf%"$arg_sep"}"
                 break
                 ;;
         esac
@@ -412,7 +420,9 @@ if [ "$opt_run_shell" -eq 1 ] || [ "$opt_login_shell" -eq 1 ]; then
 fi
 
 # No command specified
-if [ -z "$command" ]; then
+if [ "$end_of_options_only" -eq 1 ]; then
+    die_with_help "sudo: no command specified after --" 1
+elif [ -z "$command" ]; then
     die_with_help "sudo: no command specified" 1
 fi
 

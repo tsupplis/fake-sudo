@@ -1,0 +1,72 @@
+#!/bin/sh
+# sudo_test - run basic tests for the sudo wrapper locally or on a remote host
+# Usage:
+#   ./sudo_test                 # local tests
+#   ./sudo_test freebsd         # remote tests (scp + ssh)
+#   ./sudo_test user@host       # remote tests
+#   ./sudo_test --help
+
+set -e
+
+show_help() {
+    cat <<'EOF'
+Usage:
+  sudo_test [host]
+
+Runs a safe set of tests for the sudo wrapper.
+- If no host is provided, tests run locally.
+- If a host is provided, the sudo script and this test are copied to /tmp and
+  executed remotely.
+EOF
+}
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    show_help
+    exit 0
+fi
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+SUDO_SCRIPT="$SCRIPT_DIR/sudo"
+TESTS='${TESTS:-/tmp/sudo_test_cases.sh}'
+
+run_tests() {
+    echo "== sudo_test: starting =="
+    echo "sudo path: $1"
+
+    printf '\n# -- with no command\n'
+    "$1" -- || true
+
+    printf '\n# -- with --help (should attempt command)\n'
+    "$1" -- --help || true
+
+    printf '\n# -- with -h (should attempt command)\n'
+    "$1" -- -h || true
+
+    printf '\n# glob expansion (unquoted)\n'
+    "$1" ls .local/* || true
+
+    printf '\n# glob literal (quoted)\n'
+    "$1" ls '.local/*' || true
+
+    printf '\n# -H home test\n'
+    "$1" -H env | grep HOME || true
+
+    echo "== sudo_test: done =="
+}
+
+if [ -z "$1" ]; then
+    chmod +x "$SUDO_SCRIPT"
+    run_tests "$SUDO_SCRIPT"
+    exit 0
+fi
+
+HOST="$1"
+REMOTE_SUDO="/tmp/sudo"
+REMOTE_TEST="/tmp/sudo_test"
+
+# Copy scripts
+scp "$SUDO_SCRIPT" "$HOST":"$REMOTE_SUDO"
+scp "$0" "$HOST":"$REMOTE_TEST"
+
+# Execute remotely
+ssh "$HOST" "chmod +x $REMOTE_SUDO $REMOTE_TEST && $REMOTE_TEST"
