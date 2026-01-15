@@ -1,7 +1,7 @@
 # sudo - Compatibility Wrapper
 
 [![License](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD)
-[![Language](https://img.shields.io/badge/language-c-blue.svg)](https://en.wikipedia.org/wiki/c_(programming_language))
+[![Language](https://img.shields.io/badge/language-sh-blue.svg)](https://en.wikipedia.org/wiki/Shell_script)
 
 A POSIX-compliant shell script that provides `sudo`-like functionality by mapping commands to `doas` when available, or falling back to plain shell execution when `doas` is not installed.
 
@@ -47,7 +47,7 @@ Ignored options (warnings shown):
 - `-s, --shell` - Run shell (as target user with doas, as current user without)
 - `-i, --login` - Run login shell (as target user with doas, as current user without)
 - `-b, --background` - Run command in background
-- `--` - End of options delimiter
+- `--` - End of options delimiter (commands starting with `-` are supported)
 
 #### doas Backend Options (require doas installation)
 - `-u user, --user=user` - Run command as specified user (default: root)
@@ -60,9 +60,9 @@ Ignored options (warnings shown):
 - `-v, --validate` - Update cached credentials (limited support with doas)
 - `-k, --reset-timestamp` - Invalidate cached credentials (limited support with doas)
 - `-K, --remove-timestamp` - Remove all cached credentials (limited support with doas)
-- `-E, --preserve-env` - Preserve user environment (limited support with doas)
+- `-E, --preserve-env` - Preserve a minimal safe environment (limited support)
 - `-g group, --group=group` - Run with specified group (not supported by doas)
-- `-H, --set-home` - Set HOME to target user's home (not implemented)
+- `-H, --set-home` - Set HOME to target user's home (limited support with doas)
 - `-l, --list` - List privileges (not implemented)
 
 ## Behavior
@@ -167,6 +167,7 @@ When `doas` is not installed, no configuration is needed. Commands run with the 
 - Group switching (`-g`) is ignored
 - Authentication is bypassed
 - Non-interactive mode (`-n`) has no effect
+- `-E` preserves only a minimal allowlist of environment variables
 
 ## Compatibility Matrix
 
@@ -177,7 +178,7 @@ When `doas` is not installed, no configuration is needed. Commands run with the 
 | `-s` | ✅ Full support | ✅ Current user shell |
 | `-i` | ✅ Full support | ✅ Current user shell |
 | `-n` | ✅ Full support | ⚠️ Ignored (warning) |
-| `-E` | ⚠️ Limited support | ✅ Environment preserved |
+| `-E` | ⚠️ Limited support | ⚠️ Minimal allowlist only |
 | `-b` | ✅ Full support | ✅ Full support |
 | `-a style` | ✅ Full support | ⚠️ Ignored (warning) |
 | `-C config` | ✅ Full support | ⚠️ Ignored (warning) |
@@ -207,7 +208,13 @@ When `doas` is not installed, no configuration is needed. Commands run with the 
 
 4. **Audit Trail**: The `doas` backend provides logging. The shell fallback does not.
 
+5. **Environment preservation (`-E`) is constrained**: The script only preserves a minimal allowlist of environment variables and sets a safe PATH.
+
 ## Testing
+# Local or remote test runner
+./sudo_test            # local
+./sudo_test freebsd    # remote (scp + ssh)
+
 
 Test the script's behavior:
 
