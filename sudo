@@ -118,7 +118,10 @@ run_shell() {
             set -- "PATH=$DOAS_SAFE_PATH" "$@"
             set -- env -i "$@"
         fi
-        command -- "$@" &
+        case "$1" in
+            -*) sh -c 'exec "$@"' sh -- "$@" & ;;
+            *) "$@" & ;;
+        esac
     else
         # shellcheck disable=SC2086
         if [ "$opt_preserve_env" -eq 1 ]; then
@@ -133,7 +136,7 @@ run_shell() {
             set -- env -i "$@"
         fi
         case "$1" in
-            -*) exec command -- "$@" ;;
+            -*) exec sh -c 'exec "$@"' sh -- "$@" ;;
             *) exec "$@" ;;
         esac
     fi

@@ -68,5 +68,5 @@ REMOTE_TEST="/tmp/sudo_test"
 scp "$SUDO_SCRIPT" "$HOST":"$REMOTE_SUDO"
 scp "$0" "$HOST":"$REMOTE_TEST"
 
-# Execute remotely
-ssh "$HOST" "chmod +x $REMOTE_SUDO $REMOTE_TEST && $REMOTE_TEST"
+# Execute remotely and clean up
+ssh "$HOST" "chmod +x $REMOTE_SUDO $REMOTE_TEST && $REMOTE_TEST; rm -f $REMOTE_SUDO $REMOTE_TEST"
