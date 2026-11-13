@@ -36,7 +36,7 @@ Working options:
   -s, -i, -b (execute as current user)
 
 Ignored options (warnings shown):
-  -u, -n, -g, -a, -C, -L, -l, -v, -k, -K, -E, -H
+  -n, -g, -a, -C, -L, -l, -v, -k, -K, -E, -H
 ```
 
 ### Supported Options by Scenario
@@ -74,7 +74,7 @@ Ignored options (warnings shown):
 
 ### When doas is NOT available:
 - Commands are executed directly using the shell **without privilege escalation**
-- User switching options (`-u`) are ignored with a warning message
+- Explicit `-u` / `--user` requests must name the current user; any other identity is rejected before execution
 - The script acts as a pass-through wrapper
 - Useful for development/testing environments without privilege requirements
 
@@ -103,7 +103,7 @@ sudo ls /root
 ### Specify a user
 ```sh
 # With doas: executes as user 'www'
-# Without doas: warning shown, executes as current user
+# Without doas: fails unless www is already the current user
 sudo -u www whoami
 ```
 
@@ -152,7 +152,7 @@ permit keepenv username
 See `doas.conf(5)` for complete configuration details.
 
 ### No Configuration Needed for Shell Fallback
-When `doas` is not installed, no configuration is needed. Commands run with the current user's privileges.
+When `doas` is not installed, no configuration is needed. Commands without an explicit user request run with the current user's privileges. An explicit `-u` request must match the current username; otherwise the wrapper exits nonzero without launching a command or shell. This also applies to background execution. Identity lookup failures are rejected.
 
 ## Limitations
 
@@ -163,7 +163,7 @@ When `doas` is not installed, no configuration is needed. Commands run with the 
 
 ### Shell Fallback Mode Limitations (when doas is not available)
 - **No privilege escalation** - commands run as the current user
-- User switching (`-u`) is ignored
+- Explicit user switching (`-u`) fails unless the requested name matches the current user
 - Group switching (`-g`) is ignored
 - Authentication is bypassed
 - Non-interactive mode (`-n`) has no effect
@@ -173,7 +173,7 @@ When `doas` is not installed, no configuration is needed. Commands run with the 
 
 | Option | With doas | Without doas |
 |--------|-----------|--------------|
-| `-u user` | ✅ Full support | ⚠️ Ignored (warning) |
+| `-u user` | ✅ Delegated to doas | Current user only; other identities fail |
 | `-g group` | ⚠️ Not supported | ⚠️ Ignored (warning) |
 | `-s` | ✅ Full support | ✅ Current user shell |
 | `-i` | ✅ Full support | ✅ Current user shell |
@@ -210,30 +210,36 @@ When `doas` is not installed, no configuration is needed. Commands run with the 
 
 5. **Environment preservation (`-E`) is constrained**: The script only preserves a minimal allowlist of environment variables and sets a safe PATH.
 
-## Testing
-# Local or remote test runner
-./sudo_test            # local
-./sudo_test freebsd    # remote (scp + ssh)
+## Tests
 
-
-Test the script's behavior:
+`sudo_test` is the entry point for the isolated regression suite in `tests/`:
 
 ```sh
-# Test help
-./sudo --help
-
-# Test version
-./sudo --version
-
-# Test command execution
-./sudo echo "Hello World"
-
-# Test with user specification
-./sudo -u nobody id
-
-# Test shell invocation
-./sudo -s
+./sudo_test
+./sudo_test -q
+./sudo_test -k identity
+FAKE_SUDO_TEST_SHELL=/bin/dash ./sudo_test
 ```
+
+Python 3 is required for tests only. Set `PYTHON=/path/to/python3` to select an
+interpreter. The launcher locates tests relative to itself, so it works from
+another working directory, and propagates test failures as a nonzero exit status.
+It accepts Python unittest discovery options; `./sudo_test --help` explains usage.
+Direct invocation with `python3 -m unittest discover -s tests -v` also works.
+
+The old SSH smoke-test mode and checks that ignored errors have been removed.
+To test another host, copy the complete checkout, including `tests/`, there and
+run `./sudo_test` on that host. The launcher does not connect to remote hosts.
+
+These tests use temporary fixtures and a recording doas stub, never real privilege
+escalation. They verify argument preservation (including empty strings, newlines,
+and byte `0x1f`), backend option forwarding, rejection of impossible identity
+requests, and launcher failure reporting. Root identity is simulated; the tests
+do not require root and do not validate a real doas installation or policy.
+
+Arguments are passed directly as positional parameters rather than serialized
+through a delimiter. Explicit `-u` without doas is intentionally stricter than
+previous versions. Omitting `-u` retains the original pass-through behavior.
 
 ## References
 
